@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: career-prep
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/careerprep
+    username: root
+    password: xxxx
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
