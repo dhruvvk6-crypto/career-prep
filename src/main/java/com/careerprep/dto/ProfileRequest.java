@@ -6,9 +6,11 @@ import jakarta.validation.constraints.Size;
 public class ProfileRequest {
 
     @NotBlank(message = "Target role is required")
+    @Size(max = 100, message = "Target role cannot exceed 100 characters")
     private String targetRole;
 
     @NotBlank(message = "Experience level is required")
+    @Size(max = 50, message = "Experience level cannot exceed 50 characters")
     private String experienceLevel;
 
     @Size(max = 1000, message = "Bio cannot exceed 1000 characters")

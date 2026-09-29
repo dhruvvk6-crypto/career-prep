@@ -3,6 +3,9 @@ package com.careerprep.entity;
 import jakarta.persistence.*;
 
 @Entity
+@Table(uniqueConstraints = @UniqueConstraint(
+        columnNames = {"interview_session_id", "interview_question_id"}
+))
 public class InterviewAnswer {
 
     @Id
@@ -10,14 +13,14 @@ public class InterviewAnswer {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "interview_session_id")
+    @JoinColumn(name = "interview_session_id", nullable = false)
     private InterviewSession interviewSession;
 
     @ManyToOne
-    @JoinColumn(name = "interview_question_id")
+    @JoinColumn(name = "interview_question_id", nullable = false)
     private InterviewQuestion interviewQuestion;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT", nullable = false)
     private String answer;
 
     public Long getId() {

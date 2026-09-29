@@ -13,9 +13,14 @@ public class InterviewQuestion {
     @Column(nullable = false, length = 2000)
     private String question;
 
+    @Column(nullable = false, length = 50)
     private String questionType;
 
+    @Column(nullable = false)
     private Integer questionOrder;
+
+    @Column(nullable = false, length = 1000)
+    private String evaluationKeywords;
 
     @ManyToOne
     @JoinColumn(name = "session_id", nullable = false)
@@ -52,6 +57,14 @@ public class InterviewQuestion {
 
     public void setQuestionOrder(Integer questionOrder) {
         this.questionOrder = questionOrder;
+    }
+
+    public String getEvaluationKeywords() {
+        return evaluationKeywords;
+    }
+
+    public void setEvaluationKeywords(String evaluationKeywords) {
+        this.evaluationKeywords = evaluationKeywords;
     }
 
     public InterviewSession getInterviewSession() {

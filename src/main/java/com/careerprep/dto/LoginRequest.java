@@ -2,6 +2,7 @@ package com.careerprep.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public class LoginRequest {
 
@@ -10,6 +11,7 @@ public class LoginRequest {
     private String email;
 
     @NotBlank(message = "Password is required")
+    @Size(max = 72, message = "Password cannot exceed 72 characters")
     private String password;
 
     public String getEmail() {

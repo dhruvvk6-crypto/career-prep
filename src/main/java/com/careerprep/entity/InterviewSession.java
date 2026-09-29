@@ -11,7 +11,11 @@ public class InterviewSession {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, length = 100)
     private String targetRole;
+
+    @Column(nullable = false, length = 20)
+    private String difficulty;
 
     @Enumerated(EnumType.STRING)
     private InterviewStatus status;
@@ -34,6 +38,14 @@ public class InterviewSession {
 
     public void setTargetRole(String targetRole) {
         this.targetRole = targetRole;
+    }
+
+    public String getDifficulty() {
+        return difficulty;
+    }
+
+    public void setDifficulty(String difficulty) {
+        this.difficulty = difficulty;
     }
 
     public InterviewStatus getStatus() {

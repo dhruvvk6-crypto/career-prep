@@ -5,10 +5,13 @@ import com.careerprep.dto.LoginResponse;
 import com.careerprep.dto.RegisterRequest;
 import com.careerprep.dto.UserResponse;
 import com.careerprep.entity.User;
+import com.careerprep.exception.ApiException;
 import com.careerprep.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import com.careerprep.security.JwtService;
+
+import java.util.Locale;
 
 @Service
 public class UserService {
@@ -27,15 +30,15 @@ public class UserService {
     }
     public LoginResponse login(LoginRequest request) {
 
-        User user = userRepository.findByEmail(request.getEmail())
+        User user = userRepository.findByEmail(normalizeEmail(request.getEmail()))
                 .orElseThrow(() ->
-                        new RuntimeException("Invalid email or password"));
+                        ApiException.unauthorized("Invalid email or password."));
 
         if (!passwordEncoder.matches(
                 request.getPassword(),
                 user.getPassword())) {
 
-            throw new RuntimeException("Invalid email or password");
+            throw ApiException.unauthorized("Invalid email or password.");
         }
 
         String token = jwtService.generateToken(user.getEmail());
@@ -45,10 +48,15 @@ public class UserService {
 
     public UserResponse register(RegisterRequest request) {
 
+        String email = normalizeEmail(request.getEmail());
+        if (userRepository.existsByEmail(email)) {
+            throw ApiException.conflict("An account with this email already exists.");
+        }
+
         User user = new User();
 
-        user.setName(request.getName());
-        user.setEmail(request.getEmail());
+        user.setName(request.getName().trim());
+        user.setEmail(email);
 
         user.setPassword(
                 passwordEncoder.encode(request.getPassword())
@@ -64,5 +72,9 @@ public class UserService {
                 savedUser.getEmail(),
                 savedUser.getRole()
         );
+    }
+
+    private String normalizeEmail(String email) {
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 }

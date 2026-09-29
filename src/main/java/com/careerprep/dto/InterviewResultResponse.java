@@ -1,5 +1,7 @@
 package com.careerprep.dto;
 
+import java.util.List;
+
 public class InterviewResultResponse {
 
     private Long id;
@@ -7,19 +9,22 @@ public class InterviewResultResponse {
     private Double score;
     private String strongAreas;
     private String improvementAreas;
+    private List<AnswerFeedbackResponse> answerFeedback;
 
     public InterviewResultResponse(
             Long id,
             Long interviewId,
             Double score,
             String strongAreas,
-            String improvementAreas) {
+            String improvementAreas,
+            List<AnswerFeedbackResponse> answerFeedback) {
 
         this.id = id;
         this.interviewId = interviewId;
         this.score = score;
         this.strongAreas = strongAreas;
         this.improvementAreas = improvementAreas;
+        this.answerFeedback = answerFeedback;
     }
 
     public Long getId() {
@@ -40,5 +45,9 @@ public class InterviewResultResponse {
 
     public String getImprovementAreas() {
         return improvementAreas;
+    }
+
+    public List<AnswerFeedbackResponse> getAnswerFeedback() {
+        return answerFeedback;
     }
 }

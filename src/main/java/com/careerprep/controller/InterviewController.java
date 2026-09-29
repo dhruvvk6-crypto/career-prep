@@ -35,6 +35,11 @@ public class InterviewController {
         return interviewService.createInterview(request);
     }
 
+    @GetMapping("/configuration")
+    public InterviewConfigurationResponse getInterviewConfiguration() {
+        return interviewService.getInterviewConfiguration();
+    }
+
 
     @GetMapping("/{id}")
     public InterviewResponse getInterview(@PathVariable Long id) {
@@ -44,7 +49,7 @@ public class InterviewController {
     @PostMapping("/{interviewId}/answers")
     public InterviewAnswerResponse submitAnswer(
             @PathVariable Long interviewId,
-            @RequestBody InterviewAnswerRequest request) {
+            @Valid @RequestBody InterviewAnswerRequest request) {
 
         return interviewService.submitAnswer(interviewId, request);
     }
@@ -61,7 +66,7 @@ public class InterviewController {
     public InterviewAnswerResponse updateAnswer(
             @PathVariable Long interviewId,
             @PathVariable Long answerId,
-            @RequestBody InterviewAnswerUpdateRequest request) {
+            @Valid @RequestBody InterviewAnswerUpdateRequest request) {
 
         return interviewService.updateAnswer(
                 interviewId,

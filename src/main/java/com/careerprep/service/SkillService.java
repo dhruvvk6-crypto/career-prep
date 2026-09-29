@@ -5,6 +5,7 @@ import com.careerprep.dto.SkillRequest;
 import com.careerprep.dto.SkillResponse;
 import com.careerprep.entity.Skill;
 import com.careerprep.entity.User;
+import com.careerprep.exception.ApiException;
 import com.careerprep.repository.SkillRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -36,7 +37,7 @@ public class SkillService {
                 user.getId(),
                 request.getName())) {
 
-            throw new RuntimeException("Skill already exists");
+            throw ApiException.conflict("Skill already exists.");
         }
 
         Skill skill = new Skill();
@@ -90,7 +91,7 @@ public class SkillService {
         Skill skill = skillRepository
                 .findByIdAndUserId(skillId, user.getId())
                 .orElseThrow(() ->
-                        new RuntimeException("Skill not found"));
+                        ApiException.notFound("Skill not found."));
 
         skillRepository.delete(skill);
     }
@@ -109,14 +110,13 @@ public class SkillService {
         Skill skill = skillRepository
                 .findByIdAndUserId(skillId, user.getId())
                 .orElseThrow(() ->
-                        new RuntimeException("Skill not found"));
+                        ApiException.notFound("Skill not found."));
 
         if (request.getProgress() == null ||
                 request.getProgress() < 0 ||
                 request.getProgress() > 100) {
 
-            throw new RuntimeException(
-                    "Progress must be between 0 and 100");
+            throw ApiException.badRequest("Progress must be between 0 and 100.");
         }
 
         skill.setProgress(request.getProgress());

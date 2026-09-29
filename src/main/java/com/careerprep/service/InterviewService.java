@@ -1,21 +1,31 @@
 package com.careerprep.service;
 
-import com.careerprep.dto.*;
+import com.careerprep.dto.InterviewAnswerRequest;
+import com.careerprep.dto.InterviewAnswerResponse;
+import com.careerprep.dto.InterviewAnswerUpdateRequest;
+import com.careerprep.dto.InterviewConfigurationResponse;
+import com.careerprep.dto.InterviewQuestionResponse;
+import com.careerprep.dto.InterviewRequest;
+import com.careerprep.dto.InterviewResponse;
+import com.careerprep.entity.InterviewAnswer;
 import com.careerprep.entity.InterviewQuestion;
 import com.careerprep.entity.InterviewSession;
+import com.careerprep.entity.QuestionBankQuestion;
 import com.careerprep.entity.User;
 import com.careerprep.enums.InterviewStatus;
+import com.careerprep.exception.ApiException;
 import com.careerprep.repository.InterviewAnswerRepository;
 import com.careerprep.repository.InterviewQuestionRepository;
 import com.careerprep.repository.InterviewSessionRepository;
+import com.careerprep.repository.LearningPathRepository;
+import com.careerprep.repository.QuestionBankQuestionRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import com.careerprep.entity.InterviewAnswer;
 
-
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 @Service
 public class InterviewService {
@@ -23,313 +33,179 @@ public class InterviewService {
     private final InterviewSessionRepository interviewSessionRepository;
     private final InterviewQuestionRepository interviewQuestionRepository;
     private final InterviewAnswerRepository interviewAnswerRepository;
+    private final LearningPathRepository learningPathRepository;
+    private final QuestionBankQuestionRepository questionBankQuestionRepository;
 
     public InterviewService(
             InterviewSessionRepository interviewSessionRepository,
             InterviewQuestionRepository interviewQuestionRepository,
-            InterviewAnswerRepository interviewAnswerRepository) {
-
+            InterviewAnswerRepository interviewAnswerRepository,
+            LearningPathRepository learningPathRepository,
+            QuestionBankQuestionRepository questionBankQuestionRepository) {
         this.interviewSessionRepository = interviewSessionRepository;
         this.interviewQuestionRepository = interviewQuestionRepository;
         this.interviewAnswerRepository = interviewAnswerRepository;
+        this.learningPathRepository = learningPathRepository;
+        this.questionBankQuestionRepository = questionBankQuestionRepository;
     }
 
     public InterviewResponse createInterview(InterviewRequest request) {
-
-        Authentication authentication =
-                SecurityContextHolder
-                        .getContext()
-                        .getAuthentication();
-
-        User user = (User) authentication.getPrincipal();
-
+        User user = currentUser();
         InterviewSession session = new InterviewSession();
-
-        session.setTargetRole(request.getTargetRole());
+        session.setTargetRole(request.getTargetRole().trim());
+        session.setDifficulty(request.getDifficulty().trim().toUpperCase(Locale.ROOT));
         session.setStatus(InterviewStatus.IN_PROGRESS);
         session.setUser(user);
 
-        InterviewSession savedSession =
-                interviewSessionRepository.save(session);
-
-        List<InterviewQuestion> questions =
-                generateQuestions(savedSession);
-
-        List<InterviewQuestion> savedQuestions =
-                interviewQuestionRepository.saveAll(questions);
-
-        return buildInterviewResponse(
-                savedSession,
-                savedQuestions
+        InterviewSession savedSession = interviewSessionRepository.save(session);
+        List<InterviewQuestion> savedQuestions = interviewQuestionRepository.saveAll(
+                generateQuestions(savedSession)
         );
+        return buildInterviewResponse(savedSession, savedQuestions);
     }
 
-    private List<InterviewQuestion> generateQuestions(
-            InterviewSession session) {
-
-        List<InterviewQuestion> questions =
-                new ArrayList<>();
-
-        InterviewQuestion question1 = new InterviewQuestion();
-        question1.setQuestion(
-                "Explain the difference between ArrayList and LinkedList in Java."
-        );
-        question1.setQuestionType("TECHNICAL");
-        question1.setQuestionOrder(1);
-        question1.setInterviewSession(session);
-        questions.add(question1);
-
-        InterviewQuestion question2 = new InterviewQuestion();
-        question2.setQuestion(
-                "What is dependency injection in Spring Boot?"
-        );
-        question2.setQuestionType("TECHNICAL");
-        question2.setQuestionOrder(2);
-        question2.setInterviewSession(session);
-        questions.add(question2);
-
-        InterviewQuestion question3 = new InterviewQuestion();
-        question3.setQuestion(
-                "Explain how JWT authentication works."
-        );
-        question3.setQuestionType("TECHNICAL");
-        question3.setQuestionOrder(3);
-        question3.setInterviewSession(session);
-        questions.add(question3);
-
-        return questions;
-    }
-
-    private InterviewResponse buildInterviewResponse(
-            InterviewSession session,
-            List<InterviewQuestion> questions) {
-
-        List<InterviewQuestionResponse> questionResponses =
-                questions.stream()
-                        .map(question ->
-                                new InterviewQuestionResponse(
-                                        question.getId(),
-                                        question.getQuestion(),
-                                        question.getQuestionType(),
-                                        question.getQuestionOrder()
-                                )
-                        )
-                        .toList();
-
-        return new InterviewResponse(
-                session.getId(),
-                session.getTargetRole(),
-                session.getStatus().name(),
-                questionResponses
+    public InterviewConfigurationResponse getInterviewConfiguration() {
+        return new InterviewConfigurationResponse(
+                learningPathRepository.findAllByOrderByName().stream()
+                        .map(path -> path.getTargetRole())
+                        .toList(),
+                List.of("BEGINNER", "INTERMEDIATE", "ADVANCED")
         );
     }
-
-
 
     public InterviewResponse getInterview(Long id) {
-
-        Authentication authentication =
-                SecurityContextHolder
-                        .getContext()
-                        .getAuthentication();
-
-        User user = (User) authentication.getPrincipal();
-
-        InterviewSession interview =
-                interviewSessionRepository.findById(id)
-                        .orElseThrow(() ->
-                                new RuntimeException("Interview not found"));
-
-        if (!interview.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException(
-                    "You are not allowed to access this interview");
-        }
-
-        return convertToResponse(interview);
+        return convertToResponse(findOwnedInterview(id));
     }
 
+    public InterviewAnswerResponse submitAnswer(Long interviewId, InterviewAnswerRequest request) {
+        InterviewSession interview = findOwnedInterview(interviewId);
+        requireInProgress(interview);
 
-    private InterviewResponse convertToResponse(InterviewSession session) {
-
-        List<InterviewQuestion> questions =
-                interviewQuestionRepository
-                        .findByInterviewSessionIdOrderByQuestionOrder(session.getId());
-
-        List<InterviewQuestionResponse> questionResponses =
-                questions.stream()
-                        .map(question -> new InterviewQuestionResponse(
-                                question.getId(),
-                                question.getQuestion(),
-                                question.getQuestionType(),
-                                question.getQuestionOrder()
-                        ))
-                        .toList();
-
-        return new InterviewResponse(
-                session.getId(),
-                session.getTargetRole(),
-                session.getStatus().name(),
-                questionResponses
-        );
-    }
-
-
-
-    public InterviewAnswerResponse submitAnswer(
-            Long interviewId,
-            InterviewAnswerRequest request) {
-
-        Authentication authentication =
-                SecurityContextHolder
-                        .getContext()
-                        .getAuthentication();
-
-        User user = (User) authentication.getPrincipal();
-
-        InterviewSession interview =
-                interviewSessionRepository.findById(interviewId)
-                        .orElseThrow(() ->
-                                new RuntimeException("Interview not found"));
-
-        if (!interview.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("You are not allowed to access this interview");
-        }
-
-        InterviewQuestion question =
-                interviewQuestionRepository.findById(request.getQuestionId())
-                        .orElseThrow(() ->
-                                new RuntimeException("Question not found"));
-
+        InterviewQuestion question = interviewQuestionRepository.findById(request.getQuestionId())
+                .orElseThrow(() -> ApiException.notFound("Question not found."));
         if (!question.getInterviewSession().getId().equals(interviewId)) {
-            throw new RuntimeException(
-                    "Question does not belong to this interview"
-            );
+            throw ApiException.badRequest("Question does not belong to this interview.");
+        }
+        if (interviewAnswerRepository
+                .findByInterviewSessionIdAndInterviewQuestionId(interviewId, request.getQuestionId())
+                .isPresent()) {
+            throw ApiException.conflict("An answer has already been submitted for this question.");
         }
 
         InterviewAnswer answer = new InterviewAnswer();
-
         answer.setInterviewSession(interview);
         answer.setInterviewQuestion(question);
-        answer.setAnswer(request.getAnswer());
-
-        InterviewAnswer savedAnswer =
-                interviewAnswerRepository.save(answer);
-
-        return new InterviewAnswerResponse(
-                savedAnswer.getId(),
-                question.getId(),
-                savedAnswer.getAnswer()
-        );
+        answer.setAnswer(request.getAnswer().trim());
+        return toAnswerResponse(interviewAnswerRepository.save(answer));
     }
-
-
 
     public List<InterviewAnswerResponse> getAnswers(Long interviewId) {
-
-        Authentication authentication =
-                SecurityContextHolder
-                        .getContext()
-                        .getAuthentication();
-
-        User user = (User) authentication.getPrincipal();
-
-        InterviewSession interview =
-                interviewSessionRepository.findById(interviewId)
-                        .orElseThrow(() ->
-                                new RuntimeException("Interview not found"));
-
-        if (!interview.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException(
-                    "You are not allowed to access this interview");
-        }
-
-        List<InterviewAnswer> answers =
-                interviewAnswerRepository
-                        .findByInterviewSessionId(interviewId);
-
-        return answers.stream()
-                .map(answer ->
-                        new InterviewAnswerResponse(
-                                answer.getId(),
-                                answer.getInterviewQuestion().getId(),
-                                answer.getAnswer()
-                        ))
+        findOwnedInterview(interviewId);
+        return interviewAnswerRepository.findByInterviewSessionId(interviewId).stream()
+                .map(this::toAnswerResponse)
                 .toList();
     }
-
-
 
     public InterviewAnswerResponse updateAnswer(
             Long interviewId,
             Long answerId,
             InterviewAnswerUpdateRequest request) {
+        InterviewSession interview = findOwnedInterview(interviewId);
+        requireInProgress(interview);
 
-        Authentication authentication =
-                SecurityContextHolder
-                        .getContext()
-                        .getAuthentication();
-
-        User user = (User) authentication.getPrincipal();
-
-        InterviewSession interview =
-                interviewSessionRepository.findById(interviewId)
-                        .orElseThrow(() ->
-                                new RuntimeException("Interview not found"));
-
-        if (!interview.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException(
-                    "You are not allowed to access this interview");
-        }
-
-        InterviewAnswer answer =
-                interviewAnswerRepository.findById(answerId)
-                        .orElseThrow(() ->
-                                new RuntimeException("Answer not found"));
-
+        InterviewAnswer answer = interviewAnswerRepository.findById(answerId)
+                .orElseThrow(() -> ApiException.notFound("Answer not found."));
         if (!answer.getInterviewSession().getId().equals(interviewId)) {
-            throw new RuntimeException(
-                    "Answer does not belong to this interview");
+            throw ApiException.badRequest("Answer does not belong to this interview.");
         }
 
-        answer.setAnswer(request.getAnswer());
-
-        InterviewAnswer updatedAnswer =
-                interviewAnswerRepository.save(answer);
-
-        return new InterviewAnswerResponse(
-                updatedAnswer.getId(),
-                updatedAnswer.getInterviewQuestion().getId(),
-                updatedAnswer.getAnswer()
-        );
+        answer.setAnswer(request.getAnswer().trim());
+        return toAnswerResponse(interviewAnswerRepository.save(answer));
     }
 
-
     public InterviewResponse completeInterview(Long id) {
+        InterviewSession interview = findOwnedInterview(id);
+        requireInProgress(interview);
 
-        Authentication authentication =
-                SecurityContextHolder
-                        .getContext()
-                        .getAuthentication();
+        List<InterviewQuestion> questions = interviewQuestionRepository
+                .findByInterviewSessionIdOrderByQuestionOrder(id);
+        List<InterviewAnswer> answers = interviewAnswerRepository.findByInterviewSessionId(id);
+        Set<Long> answeredQuestionIds = answers.stream()
+                .map(answer -> answer.getInterviewQuestion().getId())
+                .collect(java.util.stream.Collectors.toSet());
 
-        User user = (User) authentication.getPrincipal();
-
-        InterviewSession interview =
-                interviewSessionRepository.findById(id)
-                        .orElseThrow(() ->
-                                new RuntimeException("Interview not found"));
-
-
-
-        if (!interview.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException(
-                    "You are not allowed to access this interview");
+        if (questions.isEmpty() || answeredQuestionIds.size() != questions.size()) {
+            throw ApiException.badRequest("Submit one answer for every interview question before completing it.");
         }
 
         interview.setStatus(InterviewStatus.COMPLETED);
-
-        InterviewSession completedInterview =
-                interviewSessionRepository.save(interview);
-
-        return convertToResponse(completedInterview);
+        return convertToResponse(interviewSessionRepository.save(interview));
     }
+
+    private List<InterviewQuestion> generateQuestions(InterviewSession session) {
+        List<QuestionBankQuestion> bankQuestions = questionBankQuestionRepository
+                .findTop3ByLearningPathTargetRoleAndDifficultyAndActiveTrueOrderByDisplayOrder(
+                        session.getTargetRole(), session.getDifficulty());
+        if (bankQuestions.size() < 3) {
+            throw ApiException.badRequest("No complete question set is available for this learning path and difficulty.");
+        }
+
+        return bankQuestions.stream()
+                .map(bankQuestion -> toQuestion(session, bankQuestion))
+                .toList();
+    }
+
+    private InterviewQuestion toQuestion(InterviewSession session, QuestionBankQuestion bankQuestion) {
+        InterviewQuestion question = new InterviewQuestion();
+        question.setQuestion(bankQuestion.getQuestion());
+        question.setQuestionType(bankQuestion.getCategory());
+        question.setEvaluationKeywords(bankQuestion.getEvaluationKeywords());
+        question.setQuestionOrder(bankQuestion.getDisplayOrder());
+        question.setInterviewSession(session);
+        return question;
+    }
+
+    private InterviewSession findOwnedInterview(Long id) {
+        InterviewSession interview = interviewSessionRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Interview not found."));
+        if (!interview.getUser().getId().equals(currentUser().getId())) {
+            throw ApiException.forbidden("You are not allowed to access this interview.");
+        }
+        return interview;
+    }
+
+    private void requireInProgress(InterviewSession interview) {
+        if (interview.getStatus() != InterviewStatus.IN_PROGRESS) {
+            throw ApiException.conflict("This interview is already completed.");
+        }
+    }
+
+    private User currentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof User user)) {
+            throw ApiException.unauthorized("Authentication is required.");
+        }
+        return user;
+    }
+
+    private InterviewResponse convertToResponse(InterviewSession session) {
+        return buildInterviewResponse(session, interviewQuestionRepository
+                .findByInterviewSessionIdOrderByQuestionOrder(session.getId()));
+    }
+
+    private InterviewResponse buildInterviewResponse(InterviewSession session, List<InterviewQuestion> questions) {
+        List<InterviewQuestionResponse> questionResponses = questions.stream()
+                .map(question -> new InterviewQuestionResponse(
+                        question.getId(), question.getQuestion(), question.getQuestionType(), question.getQuestionOrder()))
+                .toList();
+        return new InterviewResponse(
+                session.getId(), session.getTargetRole(), session.getDifficulty(),
+                session.getStatus().name(), questionResponses);
+    }
+
+    private InterviewAnswerResponse toAnswerResponse(InterviewAnswer answer) {
+        return new InterviewAnswerResponse(
+                answer.getId(), answer.getInterviewQuestion().getId(), answer.getAnswer());
+    }
+
 }

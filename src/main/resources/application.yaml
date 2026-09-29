@@ -3,9 +3,9 @@ spring:
     name: career-prep
 
   datasource:
-    url: jdbc:mysql://localhost:3306/careerprep
-    username: root
-    password: xxxx
+    url: ${DB_URL:jdbc:mysql://localhost:3306/careerprep}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
 
   jpa:
     hibernate:
@@ -14,3 +14,12 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+app:
+  security:
+    # Provide a Base64-encoded key of at least 32 bytes through JWT_SECRET.
+    # It is intentionally required so no development key can reach production.
+    jwt-secret: ${JWT_SECRET}
+    jwt-expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
+  cors:
+    allowed-origin: ${FRONTEND_ORIGIN:http://localhost:5173}
