@@ -67,7 +67,7 @@ npm run dev
 
 Open the Vite URL shown in the terminal (normally `http://localhost:5173`).
 
-## Recruiter Notes
+## Project Overview
 
 CareerPrep demonstrates end-to-end product development: an authenticated client experience, RESTful backend services, persistent domain modeling, business logic for practice and interview workflows, and automated service tests.
 
